@@ -150,6 +150,13 @@ subjects:
   namespace: kubernetes-dashboard
 EOF
 
+# Create Basic Auth Secret
+echo "Creating Basic Auth credentials..."
+read -p "Enter username for dashboard access: " DASH_USER
+htpasswd -c auth "$DASH_USER"
+sudo -E kubectl -n kubernetes-dashboard create secret generic dash-auth --from-file=auth
+rm auth
+
 cat <<EOF | sudo -E kubectl apply -f -
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -165,10 +172,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - qrentradas.com
+    - <YOUR_DOMAIN>
     secretName: dashboard-tls-secret # Even if it doesn't exist yet, NGINX will use a snake-oil cert
   rules:
-  - host: qrentradas.com
+  - host: <YOUR_DOMAIN>
     http:
       paths:
       - path: /
@@ -179,14 +186,3 @@ spec:
             port:
               number: 80
 EOF
-
-# 3. Generate Token
-echo "Generating login token..."
-TOKEN=$(sudo -E kubectl -n kubernetes-dashboard create token admin-user --duration=8760h)
-
-echo "Login Token:"
-echo "$TOKEN"
-echo "================================================================"
-echo "Note: Since this uses a self-signed certificate, your browser"
-echo "will warn you. You must accept the risk to proceed."
-echo "================================================================"
