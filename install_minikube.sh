@@ -157,10 +157,18 @@ metadata:
   name: dashboard-ingress
   namespace: kubernetes-dashboard
   annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP" # Based on your svc port 80
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: dash-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Private Dashboard"
 spec:
+  tls:
+  - hosts:
+    - qrentradas.com
+    secretName: dashboard-tls-secret # Even if it doesn't exist yet, NGINX will use a snake-oil cert
   rules:
-  - host: qrentradas.com  # This MUST match what you type in the browser
+  - host: qrentradas.com
     http:
       paths:
       - path: /
