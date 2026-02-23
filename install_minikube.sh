@@ -7,7 +7,7 @@ sudo apt-get upgrade -y
 
 # Install basic dependencies
 echo "Installing basic dependencies..."
-sudo apt-get install -y curl wget apt-transport-https conntrack net-tools git socat
+sudo apt-get install -y curl wget apt-transport-https conntrack net-tools git socat apache2-utils
 
 # Install Docker
 echo "Installing Docker..."
@@ -123,6 +123,7 @@ sudo -E minikube addons enable dashboard
 sudo -E minikube addons enable default-storageclass
 sudo -E minikube addons enable metrics-server
 sudo -E minikube addons enable storage-provisioner
+sudo -E minikube addons enable ingress
 
 # Configure External Access to Dashboard
 echo "Configuring external access to Dashboard..."
@@ -149,24 +150,32 @@ subjects:
   namespace: kubernetes-dashboard
 EOF
 
-# 2. Patch Service to NodePort to expose it externally
-sudo -E kubectl -n kubernetes-dashboard patch service kubernetes-dashboard -p '{"spec": {"type": "NodePort"}}'
+cat <<EOF | sudo -E kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard-ingress
+  namespace: kubernetes-dashboard
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  rules:
+  - host: qrentradas.com  # This MUST match what you type in the browser
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubernetes-dashboard
+            port:
+              number: 80
+EOF
 
 # 3. Generate Token
 echo "Generating login token..."
 TOKEN=$(sudo -E kubectl -n kubernetes-dashboard create token admin-user --duration=8760h)
 
-# 4. Get Access Info
-NODE_PORT=$(sudo -E kubectl -n kubernetes-dashboard get service kubernetes-dashboard -o jsonpath='{.spec.ports[0].nodePort}')
-# Try to get public IP, fallback to hostname -I
-PUBLIC_IP=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
-
-echo ""
-echo "================================================================"
-echo " KUBERNETES DASHBOARD INSTALLED"
-echo "================================================================"
-echo "Access URL: https://${PUBLIC_IP}:${NODE_PORT}"
-echo ""
 echo "Login Token:"
 echo "$TOKEN"
 echo "================================================================"
